@@ -1,11 +1,8 @@
 const LoginScreen = ({ identifier, onIdentifierChange, otpRequestState, onSubmit }) => (
   <section className="auth-pane">
     <header className="pane-header">
-      <p className="pane-kicker">Welcome back</p>
-      <h2 className="pane-title">Log in to manage your account</h2>
-      <p className="pane-subtitle">
-        Enter your mobile number or email to receive a one-time password.
-      </p>
+      <h2 className="pane-title">Welcome Back</h2>
+      <p className="pane-subtitle">Log in to manage your account</p>
     </header>
 
     <form className="auth-form" onSubmit={onSubmit}>
@@ -17,7 +14,7 @@ const LoginScreen = ({ identifier, onIdentifierChange, otpRequestState, onSubmit
           id="identifier"
           name="identifier"
           type="text"
-          placeholder="you@example.com or +1 555 000 0000"
+          placeholder="Enter your mobile number or email"
           autoComplete="username"
           value={identifier}
           onChange={onIdentifierChange}
@@ -42,6 +39,11 @@ const LoginScreen = ({ identifier, onIdentifierChange, otpRequestState, onSubmit
         disabled={otpRequestState.loading}
       >
         {otpRequestState.loading ? 'Sending OTP...' : 'Send OTP'}
+        {!otpRequestState.loading && (
+          <span className="button-arrow" aria-hidden="true">
+            &rarr;
+          </span>
+        )}
       </button>
     </form>
   </section>

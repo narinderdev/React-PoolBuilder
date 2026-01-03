@@ -4,6 +4,7 @@ import VerifyOtpScreen from './components/VerifyOtpScreen'
 import OnboardingScreen from './components/OnboardingScreen'
 import PortalScreen from './components/PortalScreen'
 import PortalUsersScreen from './components/PortalUsersScreen'
+import AdminScreen from './components/AdminScreen'
 import './App.css'
 
 const API_BASE_URL =
@@ -15,6 +16,7 @@ const ROUTES = {
   onboarding: '/onboarding',
   portal: '/portal',
   portalUsers: '/portal/users',
+  admin: '/admin',
 }
 
 const AUTH_BLOCKED_ROUTES = new Set([ROUTES.login, ROUTES.verify])
@@ -98,6 +100,16 @@ function App() {
     const stored = sessionStorage.getItem('userId')
     return stored ? Number(stored) : null
   })
+  const [isAdmin, setIsAdmin] = useState(() => {
+    const stored = sessionStorage.getItem('isAdmin')
+    if (stored === 'true') {
+      return true
+    }
+    if (stored === 'false') {
+      return false
+    }
+    return null
+  })
   const [onboardingForm, setOnboardingForm] = useState(
     buildInitialOnboardingForm
   )
@@ -162,6 +174,14 @@ function App() {
   }, [currentUserId])
 
   useEffect(() => {
+    if (isAdmin === null) {
+      sessionStorage.removeItem('isAdmin')
+    } else {
+      sessionStorage.setItem('isAdmin', String(isAdmin))
+    }
+  }, [isAdmin])
+
+  useEffect(() => {
     if (!expiresAt) {
       setCountdown(0)
       return
@@ -176,7 +196,11 @@ function App() {
   }, [expiresAt])
 
   useEffect(() => {
-    if (route.startsWith(ROUTES.portal) && !accessToken && !refreshToken) {
+    if (
+      (route.startsWith(ROUTES.portal) || route.startsWith(ROUTES.admin)) &&
+      !accessToken &&
+      !refreshToken
+    ) {
       navigate(ROUTES.login)
     }
   }, [route, accessToken, refreshToken])
@@ -187,7 +211,8 @@ function App() {
     }
     const lastAuthed =
       sessionStorage.getItem('lastAuthedRoute') || ROUTES.onboarding
-    const blockedRoutes = lastAuthed.startsWith(ROUTES.portal)
+    const blockedRoutes =
+      lastAuthed.startsWith(ROUTES.portal) || lastAuthed.startsWith(ROUTES.admin)
       ? new Set([ROUTES.login, ROUTES.verify, ROUTES.onboarding])
       : AUTH_BLOCKED_ROUTES
     if (blockedRoutes.has(route)) {
@@ -196,10 +221,20 @@ function App() {
   }, [route, accessToken, refreshToken])
 
   useEffect(() => {
-    if (route === ROUTES.onboarding || route === ROUTES.portal) {
+    if (
+      route === ROUTES.onboarding ||
+      route.startsWith(ROUTES.portal) ||
+      route.startsWith(ROUTES.admin)
+    ) {
       sessionStorage.setItem('lastAuthedRoute', route)
     }
   }, [route])
+
+  useEffect(() => {
+    if (route === ROUTES.login && otpRequestState.success) {
+      setOtpRequestState((prev) => ({ ...prev, success: '' }))
+    }
+  }, [route, otpRequestState.success])
 
   const navigate = (path) => {
     if (window.location.pathname === path) {
@@ -336,6 +371,9 @@ function App() {
       })
       setOtpVerified(true)
       setUserExists(data.user_exists ?? null)
+      const adminStatus =
+        data.role === 'admin' || data.is_admin === true
+      setIsAdmin(adminStatus)
       if (data.access_token) {
         setAccessToken(data.access_token)
       }
@@ -346,8 +384,15 @@ function App() {
         setCurrentUserId(data.user_id)
       }
       setExpiresAt(null)
+      if (adminStatus) {
+        sessionStorage.setItem('lastAuthedRoute', ROUTES.admin)
+        navigate(ROUTES.admin)
+        return
+      }
       const isOnboarded = data.user_onboarded === true
-      navigate(isOnboarded ? ROUTES.portal : ROUTES.onboarding)
+      const nextRoute = isOnboarded ? ROUTES.portal : ROUTES.onboarding
+      sessionStorage.setItem('lastAuthedRoute', nextRoute)
+      navigate(nextRoute)
     } catch (error) {
       setOtpVerifyState({
         loading: false,
@@ -408,6 +453,7 @@ function App() {
     setAccessToken('')
     setRefreshToken('')
     setCurrentUserId(null)
+    setIsAdmin(null)
     sessionStorage.removeItem('lastAuthedRoute')
   }
 
@@ -564,6 +610,41 @@ function App() {
     }
   }
 
+  const handleUpdateUser = async (userId, payload) => {
+    if (!accessToken && !refreshToken) {
+      throw new Error('Your session expired. Please log in again.')
+    }
+    try {
+      const response = await authorizedFetch(
+        `${API_BASE_URL}/api/users/${userId}`,
+        {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        }
+      )
+      if (!response || response.status === 401) {
+        clearAuthState()
+        navigate(ROUTES.login)
+        throw new Error('Your session expired. Please log in again.')
+      }
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok) {
+        const detail =
+          Array.isArray(data.detail) && data.detail.length > 0
+            ? data.detail[0].msg
+            : data.detail
+        throw new Error(detail || 'Unable to update user.')
+      }
+      setPortalUsers((prev) =>
+        prev.map((user) => (user.id === data.id ? data : user))
+      )
+      return data
+    } catch (error) {
+      throw error
+    }
+  }
+
   const handleLogout = async () => {
     if (refreshToken) {
       try {
@@ -588,13 +669,21 @@ function App() {
   }
 
   useEffect(() => {
-    if (route.startsWith(ROUTES.portal)) {
+    if (route.startsWith(ROUTES.portal) || route.startsWith(ROUTES.admin)) {
       loadPortalUsers()
     }
   }, [route, accessToken, refreshToken])
 
+  useEffect(() => {
+    if (route.startsWith(ROUTES.admin) && isAdmin === false) {
+      navigate(ROUTES.portal)
+    }
+  }, [route, isAdmin])
 
-  const isPortal = route.startsWith(ROUTES.portal)
+
+  const isAuthedView =
+    route.startsWith(ROUTES.portal) || route.startsWith(ROUTES.admin)
+  const isAdminView = route.startsWith(ROUTES.admin)
   const currentStepIndex = Math.max(
     0,
     STEPS.findIndex((step) => step.path === route)
@@ -603,6 +692,10 @@ function App() {
   const maskedDestination = useMemo(
     () => maskIdentifier(otpDestination),
     [otpDestination]
+  )
+  const currentUser = useMemo(
+    () => portalUsers.find((user) => user.id === currentUserId) || null,
+    [portalUsers, currentUserId]
   )
   const otpTimerText = otpDestination
     ? expiresAt
@@ -613,54 +706,41 @@ function App() {
     : ''
 
   return (
-    <div className={`app-shell ${isPortal ? 'app-shell--portal' : ''}`}>
+    <div
+      className={`app-shell ${isAuthedView ? 'app-shell--portal' : ''} ${isAdminView ? 'app-shell--admin' : ''}`}
+    >
       <div className="app-orb app-orb--one" />
       <div className="app-orb app-orb--two" />
-      <main className={`auth-layout ${isPortal ? 'auth-layout--portal' : ''}`}>
-        {!isPortal && (
-          <header className="brand-header">
-            <span className="brand-pill">Pool Builder</span>
-            <h1 className="brand-title">Secure access, simple onboarding.</h1>
-            <p className="brand-subtitle">
-              Send a one-time password and verify in minutes.
-            </p>
-          </header>
-        )}
-
-        {isPortal ? (
+      <main
+        className={`auth-layout ${isAuthedView ? 'auth-layout--portal' : ''}`}
+      >
+        {isAuthedView ? (
           route === ROUTES.portalUsers ? (
             <PortalUsersScreen
               users={portalUsers}
               state={portalState}
               onBack={() => navigate(ROUTES.portal)}
+              onUpdateUser={handleUpdateUser}
+            />
+          ) : route === ROUTES.admin ? (
+            <AdminScreen
+              users={portalUsers}
+              state={portalState}
+              currentUser={currentUser}
+              onUpdateUser={handleUpdateUser}
+              onLogout={handleLogout}
             />
           ) : (
             <PortalScreen
+              currentUser={currentUser}
               onOpenUsers={() => navigate(ROUTES.portalUsers)}
               onLogout={handleLogout}
             />
           )
         ) : (
           <div
-            className={`auth-card ${route === ROUTES.onboarding ? 'auth-card--wide' : ''}`}
+            className={`auth-card ${route === ROUTES.onboarding ? 'auth-card--wide' : ''} ${route === ROUTES.login ? 'auth-card--tall' : ''}`}
           >
-            <div className="auth-steps">
-              {STEPS.map((step, index) => {
-                const status =
-                  index < currentStepIndex
-                    ? 'complete'
-                    : index === currentStepIndex
-                      ? 'current'
-                      : 'upcoming'
-                return (
-                  <div key={step.path} className={`auth-step ${status}`}>
-                    <span className="auth-step-index">{index + 1}</span>
-                    <span className="auth-step-label">{step.label}</span>
-                  </div>
-                )
-              })}
-            </div>
-
             {route === ROUTES.login && (
               <LoginScreen
                 identifier={identifier}

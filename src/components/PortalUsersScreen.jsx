@@ -1,6 +1,6 @@
 import PortalUsers from './PortalUsers'
 
-const PortalUsersScreen = ({ users, state, onBack }) => (
+const PortalUsersScreen = ({ users, state, onBack, onUpdateUser }) => (
   <section className="portal-shell">
     <header className="portal-header">
       <div>
@@ -19,7 +19,7 @@ const PortalUsersScreen = ({ users, state, onBack }) => (
       </button>
     </header>
 
-    <PortalUsers users={users} state={state} />
+    <PortalUsers users={users} state={state} onUpdateUser={onUpdateUser} />
   </section>
 )
 

@@ -1,8 +1,11 @@
 import { useState } from 'react'
 
-const PortalScreen = ({ onOpenUsers, onLogout }) => {
+const PortalScreen = ({ currentUser, onOpenUsers, onLogout }) => {
   const [showMenu, setShowMenu] = useState(false)
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
+  const greetingName =
+    currentUser?.first_name?.trim() || currentUser?.last_name?.trim() || ''
+  const greetingText = greetingName ? `Welcome back, ${greetingName}` : 'Welcome back'
 
   const handleToggleMenu = () => setShowMenu((prev) => !prev)
   const handleOpenUsers = () => {
@@ -39,9 +42,9 @@ const PortalScreen = ({ onOpenUsers, onLogout }) => {
           </button>
           {showMenu && (
             <div className="menu-card">
-              <button type="button" className="menu-item" onClick={handleOpenUsers}>
+              {/* <button type="button" className="menu-item" onClick={handleOpenUsers}>
                 Users
-              </button>
+              </button> */}
               <button
                 type="button"
                 className="menu-item"
@@ -59,7 +62,7 @@ const PortalScreen = ({ onOpenUsers, onLogout }) => {
           <section className="dashboard-card dashboard-card--welcome">
             <div className="dashboard-welcome">
               <div>
-                <p className="dashboard-kicker">Welcome back, John</p>
+                <p className="dashboard-kicker">{greetingText}</p>
                 <h3 className="dashboard-title">Your backyard vision is coming alive</h3>
                 <p className="dashboard-subtitle">
                   Your project is currently 65% complete. Next phase starts in 14

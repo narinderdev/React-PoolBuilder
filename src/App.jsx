@@ -31,6 +31,8 @@ const buildInitialOnboardingForm = () => ({
   firstName: '',
   lastName: '',
   phoneNumber: '',
+  countryCode: '+1',
+  otpCode: '',
   address: '',
   jobTitle: '',
   permissions: {
@@ -68,6 +70,12 @@ const maskIdentifier = (value) => {
   const hidden = '*'.repeat(Math.max(1, digits.length - 4))
   return `${digits.slice(0, 2)}${hidden}${digits.slice(-2)}`
 }
+
+const isValidEmail = (value) =>
+  /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
+
+const isValidPhoneDigits = (digits) =>
+  digits.length === 10 && digits[0] !== '0'
 
 function App() {
   const [route, setRoute] = useState(() => window.location.pathname)
@@ -119,6 +127,15 @@ function App() {
     error: '',
     success: '',
   })
+  const [onboardingOtpState, setOnboardingOtpState] = useState({
+    loading: false,
+    error: '',
+    success: '',
+    sent: false,
+    verified: false,
+    verifying: false,
+    sentMessage: '',
+  })
   const [portalUsers, setPortalUsers] = useState([])
   const [portalState, setPortalState] = useState({
     loading: false,
@@ -140,6 +157,22 @@ function App() {
     window.addEventListener('popstate', handlePopState)
     return () => window.removeEventListener('popstate', handlePopState)
   }, [])
+
+  useEffect(() => {
+    if (route === ROUTES.onboarding) {
+      setOnboardingErrors({})
+      setOnboardingState({ loading: false, error: '', success: '' })
+      setOnboardingOtpState({
+        loading: false,
+        error: '',
+        success: '',
+        sent: false,
+        verified: false,
+        verifying: false,
+        sentMessage: '',
+      })
+    }
+  }, [route])
 
   useEffect(() => {
     if (identifier) {
@@ -262,6 +295,30 @@ function App() {
       })
       return false
     }
+    const hasLetters = /[a-z]/i.test(trimmed)
+    const isEmail = trimmed.includes('@') || hasLetters
+    let normalizedIdentifier = trimmed
+    if (isEmail) {
+      if (!isValidEmail(trimmed)) {
+        setOtpRequestState({
+          loading: false,
+          error: 'Enter a valid email address.',
+          success: '',
+        })
+        return false
+      }
+    } else {
+      const digits = trimmed.replace(/\D/g, '')
+      if (!isValidPhoneDigits(digits)) {
+        setOtpRequestState({
+          loading: false,
+          error: 'Enter a valid 10-digit phone number.',
+          success: '',
+        })
+        return false
+      }
+      normalizedIdentifier = digits
+    }
 
     setOtpRequestState({ loading: true, error: '', success: '' })
     setOtpVerifyState({ loading: false, error: '', success: '' })
@@ -272,14 +329,14 @@ function App() {
       const response = await fetch(`${API_BASE_URL}/api/auth/otp/request`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ identifier: trimmed, purpose: 'login' }),
+        body: JSON.stringify({ identifier: normalizedIdentifier, purpose: 'login' }),
       })
       const data = await response.json().catch(() => ({}))
       if (!response.ok) {
         throw new Error(data.detail || 'Unable to send OTP')
       }
-      setIdentifier(trimmed)
-      setOtpTarget(trimmed)
+      setIdentifier(normalizedIdentifier)
+      setOtpTarget(normalizedIdentifier)
       setOtpRequestState({
         loading: false,
         error: '',
@@ -305,7 +362,15 @@ function App() {
   }
 
   const handleIdentifierChange = (event) => {
-    setIdentifier(event.target.value)
+    const raw = event.target.value
+    const hasLetters = /[a-z]/i.test(raw)
+    const hasAt = raw.includes('@')
+    if (hasLetters || hasAt) {
+      setIdentifier(raw)
+    } else {
+      const digits = raw.replace(/\D/g, '').slice(0, 10)
+      setIdentifier(digits)
+    }
     if (otpRequestState.error) {
       setOtpRequestState((prev) => ({ ...prev, error: '' }))
     }
@@ -410,12 +475,229 @@ function App() {
   }
 
   const handleOnboardingFieldChange = (field, value) => {
+    if (field === 'countryCode') {
+      updateOnboardingField(field, value)
+      if (
+        onboardingOtpState.error ||
+        onboardingOtpState.success ||
+        onboardingOtpState.sent ||
+        onboardingOtpState.verified ||
+        onboardingOtpState.sentMessage
+      ) {
+        setOnboardingOtpState({
+          loading: false,
+          error: '',
+          success: '',
+          sent: false,
+          verified: false,
+          verifying: false,
+          sentMessage: '',
+        })
+      }
+      return
+    }
     if (field === 'phoneNumber') {
       const digits = value.replace(/\D/g, '').slice(0, 10)
       updateOnboardingField(field, digits)
+      if (
+        onboardingOtpState.error ||
+        onboardingOtpState.success ||
+        onboardingOtpState.sent ||
+        onboardingOtpState.verified ||
+        onboardingOtpState.sentMessage
+      ) {
+        setOnboardingOtpState({
+          loading: false,
+          error: '',
+          success: '',
+          sent: false,
+          verified: false,
+          verifying: false,
+          sentMessage: '',
+        })
+      }
+      return
+    }
+    if (field === 'otpCode') {
+      const digits = value.replace(/\D/g, '').slice(0, 6)
+      updateOnboardingField(field, digits)
+      if (onboardingOtpState.error) {
+        setOnboardingOtpState((prev) => ({ ...prev, error: '' }))
+      }
       return
     }
     updateOnboardingField(field, value)
+  }
+
+  const handleRequestOnboardingOtp = async () => {
+    const phoneDigits = onboardingForm.phoneNumber.replace(/\D/g, '')
+    if (!phoneDigits) {
+      setOnboardingOtpState((prev) => ({
+        ...prev,
+        loading: false,
+        error: 'Enter a phone number to send an OTP.',
+        success: '',
+        sentMessage: '',
+      }))
+      return
+    }
+    if (phoneDigits.length !== 10) {
+      setOnboardingOtpState((prev) => ({
+        ...prev,
+        loading: false,
+        error: 'Enter a valid 10-digit phone number.',
+        success: '',
+        sentMessage: '',
+      }))
+      return
+    }
+    if (phoneDigits.startsWith('0')) {
+      setOnboardingOtpState((prev) => ({
+        ...prev,
+        loading: false,
+        error: 'Phone number cannot start with 0.',
+        success: '',
+        sentMessage: '',
+      }))
+      return
+    }
+    setOnboardingOtpState((prev) => ({
+      ...prev,
+      loading: true,
+      error: '',
+      success: '',
+    }))
+    try {
+      const response = await authorizedFetch(
+        `${API_BASE_URL}/api/users/otp/request`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            country_code: onboardingForm.countryCode,
+            phone_number: phoneDigits,
+          }),
+        }
+      )
+      if (!response || response.status === 401) {
+        clearAuthState()
+        navigate(ROUTES.login)
+        return
+      }
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok) {
+        throw new Error(data.detail || 'Unable to send OTP.')
+      }
+      setOnboardingErrors((prev) => ({
+        ...prev,
+        phoneNumber: '',
+        otpCode: '',
+      }))
+      setOnboardingOtpState({
+        loading: false,
+        error: '',
+        success: '',
+        sent: true,
+        verified: false,
+        verifying: false,
+        sentMessage: data.message || 'OTP sent.',
+      })
+    } catch (error) {
+      setOnboardingOtpState((prev) => ({
+        ...prev,
+        loading: false,
+        error: error.message || 'Unable to send OTP.',
+        success: '',
+        sentMessage: '',
+      }))
+    }
+  }
+
+  const handleVerifyOnboardingOtp = async () => {
+    const phoneDigits = onboardingForm.phoneNumber.replace(/\D/g, '')
+    const otpDigits = onboardingForm.otpCode.replace(/\D/g, '')
+    if (!phoneDigits) {
+      setOnboardingOtpState((prev) => ({
+        ...prev,
+        error: 'Enter a phone number to verify.',
+        success: '',
+      }))
+      return
+    }
+    if (phoneDigits.length !== 10) {
+      setOnboardingOtpState((prev) => ({
+        ...prev,
+        error: 'Enter a valid 10-digit phone number.',
+        success: '',
+      }))
+      return
+    }
+    if (phoneDigits.startsWith('0')) {
+      setOnboardingOtpState((prev) => ({
+        ...prev,
+        error: 'Phone number cannot start with 0.',
+        success: '',
+      }))
+      return
+    }
+    if (otpDigits.length !== 6) {
+      setOnboardingOtpState((prev) => ({
+        ...prev,
+        error: 'Enter the 6-digit OTP code.',
+        success: '',
+      }))
+      return
+    }
+    setOnboardingOtpState((prev) => ({
+      ...prev,
+      verifying: true,
+      error: '',
+      success: '',
+    }))
+    try {
+      const response = await authorizedFetch(
+        `${API_BASE_URL}/api/users/otp/verify`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            country_code: onboardingForm.countryCode,
+            phone_number: phoneDigits,
+            code: otpDigits,
+          }),
+        }
+      )
+      if (!response || response.status === 401) {
+        clearAuthState()
+        navigate(ROUTES.login)
+        return
+      }
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok) {
+        throw new Error(data.detail || 'Unable to verify OTP.')
+      }
+      setOnboardingErrors((prev) => ({
+        ...prev,
+        phoneNumber: '',
+        otpCode: '',
+      }))
+      setOnboardingOtpState((prev) => ({
+        ...prev,
+        verifying: false,
+        error: '',
+        success: data.message || 'OTP verified.',
+        verified: true,
+        sent: true,
+        sentMessage: '',
+      }))
+    } catch (error) {
+      setOnboardingOtpState((prev) => ({
+        ...prev,
+        verifying: false,
+        error: error.message || 'Unable to verify OTP.',
+        success: '',
+      }))
+    }
   }
 
   const updatePermission = (field) => {
@@ -437,11 +719,25 @@ function App() {
       errors.firstName = 'First name is required.'
     }
     const phoneDigits = onboardingForm.phoneNumber.replace(/\D/g, '')
-    if (phoneDigits.length !== 10) {
+    if (phoneDigits.length > 0 && phoneDigits.length !== 10) {
       errors.phoneNumber = 'Enter a valid 10-digit phone number.'
+    } else if (phoneDigits.length === 10 && phoneDigits.startsWith('0')) {
+      errors.phoneNumber = 'Phone number cannot start with 0.'
     }
     if (!onboardingForm.address.trim()) {
       errors.address = 'Address is required.'
+    }
+    if (phoneDigits.length > 0 && !errors.phoneNumber) {
+      if (!onboardingOtpState.sent) {
+        errors.phoneNumber = 'Send an OTP to verify this phone number.'
+      } else if (!onboardingOtpState.verified) {
+        const otpDigits = onboardingForm.otpCode.replace(/\D/g, '')
+        if (otpDigits.length !== 6) {
+          errors.otpCode = 'Enter the 6-digit OTP to verify.'
+        } else {
+          errors.otpCode = 'Verify the OTP to continue.'
+        }
+      }
     }
     if (!Object.values(onboardingForm.permissions).some(Boolean)) {
       errors.permissions = 'Select at least one permission.'
@@ -535,7 +831,8 @@ function App() {
     const payload = {
       first_name: onboardingForm.firstName.trim(),
       last_name: onboardingForm.lastName.trim() || null,
-      phone_number: phoneDigits,
+      country_code: phoneDigits ? onboardingForm.countryCode : null,
+      phone_number: phoneDigits || null,
       address: onboardingForm.address.trim(),
       job_title: onboardingForm.jobTitle.trim() || null,
       permissions: {
@@ -544,6 +841,10 @@ function App() {
         access_other_users: onboardingForm.permissions.accessOtherUsers,
         view_admin_panel: onboardingForm.permissions.viewAdminPanel,
       },
+      otp_code:
+        phoneDigits && !onboardingOtpState.verified
+          ? onboardingForm.otpCode.trim() || null
+          : null,
     }
 
     try {
@@ -574,6 +875,15 @@ function App() {
       })
       setOnboardingForm(buildInitialOnboardingForm())
       setOnboardingErrors({})
+      setOnboardingOtpState({
+        loading: false,
+        error: '',
+        success: '',
+        sent: false,
+        verified: false,
+        verifying: false,
+        sentMessage: '',
+      })
       navigate(ROUTES.portal)
     } catch (error) {
       setOnboardingState({
@@ -665,6 +975,15 @@ function App() {
     setUserExists(null)
     setExpiresAt(null)
     setPortalUsers([])
+    setOnboardingOtpState({
+      loading: false,
+      error: '',
+      success: '',
+      sent: false,
+      verified: false,
+      verifying: false,
+      sentMessage: '',
+    })
     navigate(ROUTES.login)
   }
 
@@ -737,9 +1056,31 @@ function App() {
               onLogout={handleLogout}
             />
           )
+        ) : route === ROUTES.onboarding ? (
+          <div className="auth-onboarding">
+            <header className="pane-header">
+              <p className="pane-kicker">User onboarding</p>
+              <p className="pane-subtitle">
+                Create new user accounts and manage their access permissions.
+              </p>
+            </header>
+            <div className="auth-card auth-card--wide auth-card--onboarding">
+              <OnboardingScreen
+                form={onboardingForm}
+                errors={onboardingErrors}
+                state={onboardingState}
+                otpState={onboardingOtpState}
+                onFieldChange={handleOnboardingFieldChange}
+                onPermissionToggle={updatePermission}
+                onRequestOtp={handleRequestOnboardingOtp}
+                onVerifyOtp={handleVerifyOnboardingOtp}
+                onSubmit={handleCreateUser}
+              />
+            </div>
+          </div>
         ) : (
           <div
-            className={`auth-card ${route === ROUTES.onboarding ? 'auth-card--wide' : ''} ${route === ROUTES.login ? 'auth-card--tall' : ''}`}
+            className={`auth-card ${route === ROUTES.login ? 'auth-card--tall' : ''}`}
           >
             {route === ROUTES.login && (
               <LoginScreen
@@ -765,17 +1106,6 @@ function App() {
                 userExists={userExists}
                 onContinueToOnboarding={() => navigate(ROUTES.onboarding)}
                 onGoToLogin={() => navigate(ROUTES.login)}
-              />
-            )}
-
-            {route === ROUTES.onboarding && (
-              <OnboardingScreen
-                form={onboardingForm}
-                errors={onboardingErrors}
-                state={onboardingState}
-                onFieldChange={handleOnboardingFieldChange}
-                onPermissionToggle={updatePermission}
-                onSubmit={handleCreateUser}
               />
             )}
           </div>

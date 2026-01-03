@@ -50,6 +50,7 @@ const buildPermissionState = (permissions = {}) => ({
 const buildEditForm = (user = {}) => ({
   firstName: user.first_name || '',
   lastName: user.last_name || '',
+  countryCode: user.country_code || '+1',
   phoneNumber: user.phone_number || '',
   address: user.address || '',
   jobTitle: user.job_title || '',
@@ -62,8 +63,10 @@ const validateEditForm = (form) => {
     errors.firstName = 'First name is required.'
   }
   const phoneDigits = form.phoneNumber.replace(/\D/g, '')
-  if (phoneDigits.length !== 10) {
+  if (phoneDigits.length > 0 && phoneDigits.length !== 10) {
     errors.phoneNumber = 'Enter a valid 10-digit phone number.'
+  } else if (phoneDigits.length === 10 && phoneDigits.startsWith('0')) {
+    errors.phoneNumber = 'Phone number cannot start with 0.'
   }
   if (!form.address.trim()) {
     errors.address = 'Address is required.'
@@ -77,7 +80,8 @@ const validateEditForm = (form) => {
 const buildUpdatePayload = (form, phoneDigits) => ({
   first_name: form.firstName.trim(),
   last_name: form.lastName.trim() || null,
-  phone_number: phoneDigits,
+  country_code: phoneDigits ? form.countryCode : null,
+  phone_number: phoneDigits || null,
   address: form.address.trim(),
   job_title: form.jobTitle.trim() || null,
   permissions: {
@@ -190,7 +194,11 @@ const PortalUsers = ({ users, state, onUpdateUser }) => {
                   {/* <span>{user.id}</span> */}
                   <span>{buildDisplayName(user)}</span>
                   <span>{user.email || '-'}</span>
-                  <span>{user.phone_number || '-'}</span>
+                  <span>
+                    {user.phone_number
+                      ? `${user.country_code || ''} ${user.phone_number}`.trim()
+                      : '-'}
+                  </span>
                   <span>{user.address || '-'}</span>
                   <span>{user.job_title || '-'}</span>
                   <span className="portal-permissions">
@@ -296,7 +304,9 @@ const PortalUsers = ({ users, state, onUpdateUser }) => {
                   Phone Number
                 </label>
                 <div className="phone-row">
-                  <div className="phone-code">+1</div>
+                  <div className="phone-code">
+                    {editForm.countryCode || '+1'}
+                  </div>
                   <input
                     id="editPhoneNumber"
                     name="editPhoneNumber"

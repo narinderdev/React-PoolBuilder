@@ -115,7 +115,7 @@ a {
 }
 
 .logo {
-    font-family: var(--font-display);
+    font-family: Manrope;
     font-size: 22px;
     letter-spacing: 0.14em;
     text-transform: uppercase;
@@ -266,7 +266,7 @@ a {
 }
 
 .hero-title {
-    font-family: var(--font-display);
+    font-family: Manrope;
     font-size: 3rem;
     line-height: 1.1;
     margin-bottom: 18px;
@@ -338,7 +338,7 @@ a {
 }
 
 .section-title {
-    font-family: var(--font-display);
+    font-family: Manrope;
     font-size: 2.4rem;
     line-height: 1.2;
     margin-bottom: 12px;
@@ -393,7 +393,7 @@ a {
 }
 
 .feature-title {
-    font-family: var(--font-display);
+    font-family: Manrope;
     font-size: 1.05rem;
     margin-bottom: 8px;
 }
@@ -507,14 +507,14 @@ a {
 }
 
 .step-number {
-    font-family: var(--font-display);
+    font-family: Manrope;
     font-weight: 600;
     color: var(--muted);
     min-width: 32px;
 }
 
 .step-content h4 {
-    font-family: var(--font-display);
+    font-family: Manrope;
     font-size: 1.05rem;
     margin-bottom: 6px;
 }
@@ -716,7 +716,7 @@ a {
 }
 
 .footer-logo {
-    font-family: var(--font-display);
+    font-family: Manrope;
     font-size: 20px;
     letter-spacing: 0.18em;
     text-transform: uppercase;

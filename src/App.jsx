@@ -5,12 +5,14 @@ import OnboardingScreen from './components/OnboardingScreen'
 import PortalScreen from './components/PortalScreen'
 import PortalUsersScreen from './components/PortalUsersScreen'
 import AdminScreen from './components/AdminScreen'
+import HomePage from './components/HomePage'
 import './App.css'
 
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, '') || 'http://localhost:8000'
 
 const ROUTES = {
+  home: '/',
   login: '/login',
   verify: '/verify',
   onboarding: '/onboarding',
@@ -145,10 +147,12 @@ function App() {
   useEffect(() => {
     const allowedRoutes = new Set(Object.values(ROUTES))
     const path = window.location.pathname
-    if (path === '/' || !allowedRoutes.has(path)) {
-      window.history.replaceState({}, '', ROUTES.login)
-      setRoute(ROUTES.login)
+    if (!allowedRoutes.has(path)) {
+      window.history.replaceState({}, '', ROUTES.home)
+      setRoute(ROUTES.home)
+      return
     }
+    setRoute(path)
 
     const handlePopState = () => {
       setRoute(window.location.pathname)
@@ -1025,6 +1029,9 @@ function App() {
     : ''
 
   return (
+    route === ROUTES.home ? (
+      <HomePage onLogin={() => navigate(ROUTES.login)} />
+    ) : (
     <div
       className={`app-shell ${isAuthedView ? 'app-shell--portal' : ''} ${isAdminView ? 'app-shell--admin' : ''}`}
     >
@@ -1112,6 +1119,7 @@ function App() {
         )}
       </main>
     </div>
+    )
   )
 }
 

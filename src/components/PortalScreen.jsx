@@ -26,7 +26,7 @@ const PortalScreen = ({ currentUser, onOpenUsers, onLogout }) => {
     <section className="portal-shell">
       <header className="portal-header">
         <div>
-          <p className="portal-kicker">Homeowner Portal</p>
+          {/* <p className="portal-kicker">Homeowner Portal</p> */}
           <h2 className="portal-title">Project command center</h2>
           <p className="portal-subtitle">
             Track your pool build, review upgrades, and stay on schedule.

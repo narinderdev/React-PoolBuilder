@@ -332,7 +332,7 @@ function App() {
     setOtpCode('')
 
     try {
-      const response = await fetch(`${API_BASE_URL}/auth/otp/request`, {
+      const response = await fetch(`${API_BASE_URL}/api/auth/otp/request`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ identifier: normalizedIdentifier, purpose: 'login' }),

@@ -426,7 +426,7 @@ function App() {
     setOtpVerifyState({ loading: true, error: '', success: '' })
 
     try {
-      const response = await fetch(`${API_BASE_URL}/auth/otp/verify`, {
+      const response = await fetch(`${API_BASE_URL}/api/auth/otp/verify`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ identifier: trimmed, purpose: 'login', code }),
@@ -575,7 +575,7 @@ function App() {
     }))
     try {
       const response = await authorizedFetch(
-        `${API_BASE_URL}/users/otp/request`,
+        `${API_BASE_URL}/api/users/otp/request`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -662,7 +662,7 @@ function App() {
     }))
     try {
       const response = await authorizedFetch(
-        `${API_BASE_URL}/users/otp/verify`,
+        `${API_BASE_URL}/api/users/otp/verify`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -764,7 +764,7 @@ function App() {
       return ''
     }
     try {
-      const response = await fetch(`${API_BASE_URL}/auth/refresh`, {
+      const response = await fetch(`${API_BASE_URL}/api/auth/refresh`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ refresh_token: refreshToken }),
@@ -854,7 +854,7 @@ function App() {
     }
 
     try {
-      const response = await authorizedFetch(`${API_BASE_URL}/users/me`, {
+      const response = await authorizedFetch(`${API_BASE_URL}/api/users/me`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -906,7 +906,7 @@ function App() {
     }
     setPortalState({ loading: true, error: '' })
     try {
-      const response = await authorizedFetch(`${API_BASE_URL}/users`)
+      const response = await authorizedFetch(`${API_BASE_URL}/api/users`)
       if (!response || response.status === 401) {
         clearAuthState()
         navigate(ROUTES.login)
@@ -932,7 +932,7 @@ function App() {
     }
     try {
       const response = await authorizedFetch(
-        `${API_BASE_URL}/users/${userId}`,
+        `${API_BASE_URL}/api/users/${userId}`,
         {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
@@ -964,7 +964,7 @@ function App() {
   const handleLogout = async () => {
     if (refreshToken) {
       try {
-        await fetch(`${API_BASE_URL}/auth/logout`, {
+        await fetch(`${API_BASE_URL}/api/auth/logout`, {
           method: 'POST',
           headers: { Authorization: `Bearer ${refreshToken}` },
         })

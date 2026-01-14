@@ -39,9 +39,9 @@ const COUNTRY_CODES = countryTelData.allCountries.map((country) => ({
 }))
 
 const DEFAULT_COUNTRY_CODE =
-  COUNTRY_CODES.find((country) => country.code === 'IN')?.code ||
+  COUNTRY_CODES.find((country) => country.code === 'US')?.code ||
   COUNTRY_CODES[0]?.code ||
-  'IN'
+  'US'
 
 const buildInitialOnboardingForm = () => ({
   firstName: '',

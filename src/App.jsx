@@ -506,6 +506,7 @@ function App() {
         success: data.message || 'OTP verified.',
       })
       setOtpVerified(true)
+      const isExistingUser = data.user_exists === true
       setUserExists(data.user_exists ?? null)
       const adminStatus =
         data.role === 'admin' || data.is_admin === true
@@ -525,7 +526,7 @@ function App() {
         navigate(ROUTES.admin)
         return
       }
-      const isOnboarded = data.user_onboarded === true
+      const isOnboarded = data.user_onboarded === true || isExistingUser
       const nextRoute = isOnboarded ? ROUTES.portal : ROUTES.onboarding
       sessionStorage.setItem('lastAuthedRoute', nextRoute)
       navigate(nextRoute)
@@ -1070,6 +1071,12 @@ function App() {
     }
   }, [route, isAdmin])
 
+  useEffect(() => {
+    if (route === ROUTES.onboarding && userExists) {
+      navigate(ROUTES.portal)
+    }
+  }, [route, userExists])
+
 
   const isAuthedView =
     route.startsWith(ROUTES.portal) || route.startsWith(ROUTES.admin)
@@ -1118,6 +1125,10 @@ function App() {
         : 'OTP expired. Request a new one.'
       : 'Request a new OTP if you need another code.'
     : ''
+
+  const handleContinueAfterOtp = () => {
+    navigate(userExists ? ROUTES.portal : ROUTES.onboarding)
+  }
 
   return (
     route === ROUTES.home ? (
@@ -1207,7 +1218,7 @@ function App() {
                 isResending={otpRequestState.loading}
                 otpVerified={otpVerified}
                 userExists={userExists}
-                onContinueToOnboarding={() => navigate(ROUTES.onboarding)}
+                onContinueToOnboarding={handleContinueAfterOtp}
                 onGoToLogin={() => navigate(ROUTES.login)}
               />
             )}

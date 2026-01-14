@@ -1,4 +1,14 @@
-const LoginScreen = ({ identifier, onIdentifierChange, otpRequestState, onSubmit }) => (
+const LoginScreen = ({
+  identifier,
+  onIdentifierChange,
+  onIdentifierClear,
+  isPhoneIdentifier,
+  countryCode,
+  countries,
+  onCountryChange,
+  otpRequestState,
+  onSubmit,
+}) => (
   <section className="auth-pane">
     <header className="pane-header">
       <h2 className="pane-title">Welcome Back</h2>
@@ -10,16 +20,57 @@ const LoginScreen = ({ identifier, onIdentifierChange, otpRequestState, onSubmit
         <label className="auth-label" htmlFor="identifier">
           Enter mobile number or email
         </label>
-        <input
-          id="identifier"
-          name="identifier"
-          type="text"
-          placeholder="Enter your mobile number or email"
-          autoComplete="username"
-          value={identifier}
-          onChange={onIdentifierChange}
-          className="auth-input"
-        />
+        {isPhoneIdentifier ? (
+          <div className="auth-phone-input">
+            <div className="auth-phone-prefix">
+              <select
+                className="auth-phone-select"
+                value={countryCode}
+                onChange={onCountryChange}
+                aria-label="Country code"
+              >
+                {countries.map((country) => (
+                  <option key={country.code} value={country.code}>
+                    {country.code} {country.dialCode}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <input
+              id="identifier"
+              name="identifier"
+              type="tel"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              placeholder="Enter your mobile number"
+              autoComplete="tel"
+              value={identifier}
+              onChange={onIdentifierChange}
+              className="auth-input auth-input--phone"
+            />
+            {identifier && (
+              <button
+                type="button"
+                className="auth-phone-clear"
+                onClick={onIdentifierClear}
+                aria-label="Clear phone number"
+              >
+                x
+              </button>
+            )}
+          </div>
+        ) : (
+          <input
+            id="identifier"
+            name="identifier"
+            type="text"
+            placeholder="Enter your mobile number or email"
+            autoComplete="username"
+            value={identifier}
+            onChange={onIdentifierChange}
+            className="auth-input"
+          />
+        )}
       </div>
 
       {otpRequestState.error && (

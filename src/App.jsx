@@ -6,6 +6,7 @@ import PortalScreen from './components/PortalScreen'
 import PortalUsersScreen from './components/PortalUsersScreen'
 import AdminScreen from './components/AdminScreen'
 import HomePage from './components/HomePage'
+import countryTelData from 'country-telephone-data'
 import './App.css'
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '').replace(
@@ -30,6 +31,17 @@ const STEPS = [
   { label: 'OTP Verification', path: ROUTES.verify },
   { label: 'User Onboarding', path: ROUTES.onboarding },
 ]
+
+const COUNTRY_CODES = countryTelData.allCountries.map((country) => ({
+  name: country.name,
+  code: country.iso2.toUpperCase(),
+  dialCode: `+${country.dialCode}`,
+}))
+
+const DEFAULT_COUNTRY_CODE =
+  COUNTRY_CODES.find((country) => country.code === 'IN')?.code ||
+  COUNTRY_CODES[0]?.code ||
+  'IN'
 
 const buildInitialOnboardingForm = () => ({
   firstName: '',
@@ -78,14 +90,19 @@ const maskIdentifier = (value) => {
 const isValidEmail = (value) =>
   /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
 
-const isValidPhoneDigits = (digits) =>
-  digits.length === 10 && digits[0] !== '0'
+const isValidPhoneDigits = (digits, countryCode) => {
+  if (countryCode === 'IN') {
+    return digits.length === 10 && digits[0] !== '0'
+  }
+  return digits.length >= 7 && digits.length <= 15
+}
 
 function App() {
   const [route, setRoute] = useState(() => window.location.pathname)
   const [identifier, setIdentifier] = useState(() =>
     sessionStorage.getItem('otpIdentifier') || ''
   )
+  const [countryCode, setCountryCode] = useState(DEFAULT_COUNTRY_CODE)
   const [otpTarget, setOtpTarget] = useState('')
   const [otpCode, setOtpCode] = useState('')
   const [expiresAt, setExpiresAt] = useState(null)
@@ -304,6 +321,7 @@ function App() {
     const hasLetters = /[a-z]/i.test(trimmed)
     const isEmail = trimmed.includes('@') || hasLetters
     let normalizedIdentifier = trimmed
+    let displayIdentifier = trimmed
     if (isEmail) {
       if (!isValidEmail(trimmed)) {
         setOtpRequestState({
@@ -315,21 +333,41 @@ function App() {
       }
     } else {
       const digits = trimmed.replace(/\D/g, '')
-      if (!isValidPhoneDigits(digits)) {
+      const dialCode = selectedCountry?.dialCode || ''
+      const dialDigits = dialCode.replace(/\D/g, '')
+      let localDigits = digits
+      if (dialDigits && digits.startsWith(dialDigits)) {
+        localDigits = digits.slice(dialDigits.length)
+      }
+      if (!trimmed.startsWith('+') && !trimmed.startsWith(dialCode)) {
+        localDigits = localDigits.slice(0, countryCode === 'IN' ? 10 : 15)
+      }
+      if (!isValidPhoneDigits(localDigits, countryCode)) {
         setOtpRequestState({
           loading: false,
-          error: 'Enter a valid 10-digit phone number.',
+          error:
+            countryCode === 'IN'
+              ? 'Enter a valid 10-digit phone number.'
+              : 'Enter a valid phone number.',
           success: '',
         })
         return false
       }
-      normalizedIdentifier = digits
+      displayIdentifier = localDigits
+      normalizedIdentifier = localDigits
     }
 
     setOtpRequestState({ loading: true, error: '', success: '' })
     setOtpVerifyState({ loading: false, error: '', success: '' })
     setOtpVerified(false)
     setOtpCode('')
+
+    console.info('[OTP] request', {
+      input: destination,
+      normalized: normalizedIdentifier,
+      countryCode,
+      dialCode: selectedCountry?.dialCode || '',
+    })
 
     try {
       const response = await fetch(`${API_BASE_URL}/api/auth/otp/request`, {
@@ -341,7 +379,7 @@ function App() {
       if (!response.ok) {
         throw new Error(data.detail || 'Unable to send OTP')
       }
-      setIdentifier(normalizedIdentifier)
+      setIdentifier(displayIdentifier)
       setOtpTarget(normalizedIdentifier)
       setOtpRequestState({
         loading: false,
@@ -374,11 +412,31 @@ function App() {
     if (hasLetters || hasAt) {
       setIdentifier(raw)
     } else {
-      const digits = raw.replace(/\D/g, '').slice(0, 10)
+      const maxDigits = countryCode === 'IN' ? 10 : 15
+      const digits = raw.replace(/\D/g, '').slice(0, maxDigits)
       setIdentifier(digits)
     }
     if (otpRequestState.error) {
       setOtpRequestState((prev) => ({ ...prev, error: '' }))
+    }
+  }
+
+  const handleIdentifierClear = () => {
+    setIdentifier('')
+    if (otpRequestState.error) {
+      setOtpRequestState((prev) => ({ ...prev, error: '' }))
+    }
+  }
+
+  const handleCountryChange = (event) => {
+    const nextCode = event.target.value
+    setCountryCode(nextCode)
+    if (!/[a-z]/i.test(identifier) && !identifier.includes('@')) {
+      const maxDigits = nextCode === 'IN' ? 10 : 15
+      const digits = identifier.replace(/\D/g, '').slice(0, maxDigits)
+      if (digits !== identifier) {
+        setIdentifier(digits)
+      }
     }
   }
 
@@ -404,6 +462,13 @@ function App() {
     event.preventDefault()
     const trimmed = (otpTarget || identifier).trim()
     const code = otpCode.replace(/\D/g, '').slice(0, 6)
+
+    console.info('[OTP] verify', {
+      identifier: trimmed,
+      codeLength: code.length,
+      countryCode,
+      dialCode: selectedCountry?.dialCode || '',
+    })
 
     if (!trimmed) {
       setOtpVerifyState({
@@ -1014,9 +1079,33 @@ function App() {
     STEPS.findIndex((step) => step.path === route)
   )
   const otpDestination = otpTarget || identifier
+  const selectedCountry = useMemo(
+    () => COUNTRY_CODES.find((country) => country.code === countryCode) || COUNTRY_CODES[0],
+    [countryCode]
+  )
+  const isPhoneIdentifier =
+    identifier.length > 0 && !/[a-z]/i.test(identifier) && !identifier.includes('@')
+  const displayDestination = useMemo(() => {
+    if (!otpDestination) {
+      return ''
+    }
+    if (/[a-z]/i.test(otpDestination) || otpDestination.includes('@')) {
+      return otpDestination
+    }
+    const dialCode = selectedCountry?.dialCode
+    if (!dialCode) {
+      return otpDestination
+    }
+    const dialDigits = dialCode.replace(/\D/g, '')
+    const digits = otpDestination.replace(/\D/g, '')
+    if (dialDigits && digits.startsWith(dialDigits)) {
+      return digits.slice(dialDigits.length) || otpDestination
+    }
+    return otpDestination
+  }, [otpDestination, selectedCountry])
   const maskedDestination = useMemo(
-    () => maskIdentifier(otpDestination),
-    [otpDestination]
+    () => maskIdentifier(displayDestination),
+    [displayDestination]
   )
   const currentUser = useMemo(
     () => portalUsers.find((user) => user.id === currentUserId) || null,
@@ -1095,6 +1184,11 @@ function App() {
               <LoginScreen
                 identifier={identifier}
                 onIdentifierChange={handleIdentifierChange}
+                onIdentifierClear={handleIdentifierClear}
+                isPhoneIdentifier={isPhoneIdentifier}
+                countryCode={countryCode}
+                countries={COUNTRY_CODES}
+                onCountryChange={handleCountryChange}
                 otpRequestState={otpRequestState}
                 onSubmit={handleRequestOtp}
               />

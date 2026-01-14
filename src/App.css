@@ -271,6 +271,71 @@
   box-shadow: 0 0 0 3px rgba(42, 140, 191, 0.2);
 }
 
+.auth-phone-input {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--input-bg);
+  padding: 8px 10px;
+}
+
+.auth-phone-input:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(42, 140, 191, 0.2);
+}
+
+.auth-phone-prefix {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 6px;
+  border-radius: 8px;
+  background: #eef4fa;
+  color: var(--ink-strong);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.auth-phone-select {
+  border: none;
+  background: transparent;
+  color: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+  padding: 6px 4px;
+  cursor: pointer;
+}
+
+.auth-phone-select:focus {
+  outline: none;
+}
+
+.auth-input--phone {
+  border: none;
+  background: transparent;
+  padding: 6px 4px;
+  width: 100%;
+  min-width: 0;
+}
+
+.auth-input--phone:focus {
+  box-shadow: none;
+}
+
+.auth-phone-clear {
+  border: none;
+  background: transparent;
+  color: var(--ink-muted);
+  font-size: 0.9rem;
+  cursor: pointer;
+  padding: 4px 6px;
+}
+
+.auth-phone-clear:hover {
+  color: var(--ink-strong);
+}
+
 .auth-input.input-error {
   border-color: var(--error);
   box-shadow: 0 0 0 3px rgba(214, 69, 69, 0.18);

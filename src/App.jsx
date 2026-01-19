@@ -94,7 +94,7 @@ const isValidPhoneDigits = (digits, countryCode) => {
   if (countryCode === 'IN') {
     return digits.length === 10 && digits[0] !== '0'
   }
-  return digits.length >= 7 && digits.length <= 15
+  return digits.length === 10
 }
 
 function App() {
@@ -340,15 +340,21 @@ function App() {
         localDigits = digits.slice(dialDigits.length)
       }
       if (!trimmed.startsWith('+') && !trimmed.startsWith(dialCode)) {
-        localDigits = localDigits.slice(0, countryCode === 'IN' ? 10 : 15)
+        if (localDigits.length > 10) {
+          setOtpRequestState({
+            loading: false,
+            error: 'Enter a valid 10-digit phone number.',
+            success: '',
+          })
+          return false
+        }
+        localDigits = localDigits.slice(0, 10)
       }
       if (!isValidPhoneDigits(localDigits, countryCode)) {
         setOtpRequestState({
           loading: false,
           error:
-            countryCode === 'IN'
-              ? 'Enter a valid 10-digit phone number.'
-              : 'Enter a valid phone number.',
+            'Enter a valid 10-digit phone number.',
           success: '',
         })
         return false
@@ -412,7 +418,7 @@ function App() {
     if (hasLetters || hasAt) {
       setIdentifier(raw)
     } else {
-      const maxDigits = countryCode === 'IN' ? 10 : 15
+      const maxDigits = 10
       const digits = raw.replace(/\D/g, '').slice(0, maxDigits)
       setIdentifier(digits)
     }
@@ -432,7 +438,7 @@ function App() {
     const nextCode = event.target.value
     setCountryCode(nextCode)
     if (!/[a-z]/i.test(identifier) && !identifier.includes('@')) {
-      const maxDigits = nextCode === 'IN' ? 10 : 15
+      const maxDigits = 10
       const digits = identifier.replace(/\D/g, '').slice(0, maxDigits)
       if (digits !== identifier) {
         setIdentifier(digits)
